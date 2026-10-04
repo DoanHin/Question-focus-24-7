@@ -1,0 +1,6 @@
+{
+  "name": "QUESTION FOCUS 24/7",
+  "description": "Trợ lý học tập AI giúp học sinh tự suy nghĩ và giải bài bằng phương pháp hỏi gợi mở Socratic 24/7.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
