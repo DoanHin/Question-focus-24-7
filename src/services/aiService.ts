@@ -85,24 +85,51 @@ export async function sendChatMessage(
       })),
     };
 
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+    let response: Response | null = null;
+    let lastNetworkErr: any = null;
 
-    const data = await response.json();
+    // Try up to 2 times for transient network dips
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+        break;
+      } catch (err: any) {
+        lastNetworkErr = err;
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+      }
+    }
 
-    if (!response.ok) {
+    if (!response) {
+      console.error('Network request failed after retries:', lastNetworkErr);
       throw new AIServiceError(
-        data.message || 'Question Focus hiện chưa kết nối được với AI. Vui lòng thử lại sau.',
-        data.error || 'SERVER_ERROR'
+        'Không thể kết nối đến máy chủ Question Focus. Vui lòng kiểm tra kết nối mạng và thử lại.',
+        'NETWORK_ERROR'
       );
     }
 
-    if (!data.content || typeof data.content !== 'string') {
+    let data: any = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    if (!response.ok) {
+      throw new AIServiceError(
+        data?.message || 'Question Focus hiện chưa kết nối được với AI. Vui lòng thử lại sau.',
+        data?.error || `HTTP_${response.status}`
+      );
+    }
+
+    if (!data?.content || typeof data.content !== 'string') {
       throw new AIServiceError('Không nhận được nội dung phản hồi từ AI.', 'EMPTY_RESPONSE');
     }
 
@@ -111,9 +138,9 @@ export async function sendChatMessage(
     if (error instanceof AIServiceError) {
       throw error;
     }
-    console.error('Network / Request Error:', error);
+    console.error('Request Error:', error);
     throw new AIServiceError(
-      'Question Focus hiện chưa kết nối được với AI. Vui lòng kiểm tra kết nối mạng và thử lại sau.',
+      'Question Focus hiện chưa kết nối được với AI. Vui lòng thử lại sau.',
       'NETWORK_ERROR'
     );
   }
