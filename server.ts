@@ -1,6 +1,8 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
+import type { Request, Response } from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 
@@ -213,14 +215,18 @@ app.post('/api/chat', async (req: Request, res: Response) => {
 
 async function startServer() {
   const isProd = process.env.NODE_ENV === 'production';
+  const distPath = path.resolve(process.cwd(), 'dist');
+  const indexHtmlPath = path.resolve(distPath, 'index.html');
+  const hasDist = fs.existsSync(indexHtmlPath);
 
-  if (isProd) {
-    const distPath = path.resolve(process.cwd(), 'dist');
+  if (isProd && hasDist) {
+    console.log(`[Production] Serving static build from ${distPath}`);
     app.use(express.static(distPath));
     app.get('*', (_req: Request, res: Response) => {
-      res.sendFile(path.resolve(distPath, 'index.html'));
+      res.sendFile(indexHtmlPath);
     });
   } else {
+    console.log('[Development/Vite] Mounting Vite middleware mode');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
