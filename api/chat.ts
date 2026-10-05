@@ -154,36 +154,68 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    let response;
-    let attempts = 0;
-    const maxAttempts = 2;
+    // Keep the most recent 10 messages (sliding window) to prevent Token Per Minute (TPM) quota exhaustion on free tier
+    let trimmedContents = [...mergedContents];
+    if (trimmedContents.length > 10) {
+      trimmedContents = trimmedContents.slice(-10);
+      while (trimmedContents.length > 0 && trimmedContents[0].role !== 'user') {
+        trimmedContents.shift();
+      }
+    }
 
-    while (attempts < maxAttempts) {
-      try {
-        attempts++;
-        response = await ai.models.generateContent({
-          model: modelName,
-          contents: mergedContents,
-          config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-            temperature: 0.7,
-          },
-        });
-        break;
-      } catch (callErr: any) {
-        const msg = callErr?.message || '';
-        const isTransient =
-          msg.includes('503') ||
-          msg.includes('UNAVAILABLE') ||
-          msg.includes('high demand') ||
-          callErr?.status === 503;
-        if (isTransient && attempts < maxAttempts) {
-          console.warn(`[Gemini API] Transient 503 on Vercel, retrying in 1.5s...`);
-          await new Promise((r) => setTimeout(r, 1500));
-        } else {
-          throw callErr;
+    if (trimmedContents.length === 0) {
+      trimmedContents = mergedContents.slice(-1);
+    }
+
+    const modelsToTry = [...new Set([modelName, 'gemini-2.5-flash'])];
+    let response: any = null;
+    let lastError: any = null;
+
+    for (const currentModel of modelsToTry) {
+      let attempts = 0;
+      const maxAttempts = 2;
+
+      while (attempts < maxAttempts) {
+        try {
+          attempts++;
+          response = await ai.models.generateContent({
+            model: currentModel,
+            contents: trimmedContents,
+            config: {
+              systemInstruction: SYSTEM_INSTRUCTION,
+              temperature: 0.7,
+            },
+          });
+          break;
+        } catch (callErr: any) {
+          lastError = callErr;
+          const msg = callErr?.message || '';
+          const isRateLimitOrBusy =
+            msg.includes('429') ||
+            msg.includes('RESOURCE_EXHAUSTED') ||
+            msg.includes('quota') ||
+            msg.includes('503') ||
+            msg.includes('UNAVAILABLE') ||
+            msg.includes('high demand') ||
+            callErr?.status === 429 ||
+            callErr?.status === 503;
+
+          if (isRateLimitOrBusy && attempts < maxAttempts) {
+            console.warn(`[Gemini API] Rate limit / busy on ${currentModel} (attempt ${attempts}), waiting 2s...`);
+            await new Promise((r) => setTimeout(r, 2000));
+          } else {
+            break;
+          }
         }
       }
+
+      if (response?.text) {
+        break;
+      }
+    }
+
+    if (!response?.text && lastError) {
+      throw lastError;
     }
 
     const replyText = response?.text || '';
@@ -210,7 +242,7 @@ export default async function handler(req: any, res: any) {
         'Khóa GEMINI_API_KEY trên Vercel không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại cấu hình trên Vercel.';
     } else if (errorMessage.includes('RESOURCE_EXHAUSTED') || error?.status === 429) {
       errorCode = 'QUOTA_EXCEEDED';
-      userMessage = 'Hệ thống AI đang nhận lượng yêu cầu quá lớn. Vui lòng đợi 1 phút rồi thử lại.';
+      userMessage = 'Bạn vừa gửi nhiều câu hỏi liên tục (đạt giới hạn lượt hỏi/phút của gói miễn phí Google). Vui lòng đợi khoảng 30 - 60 giây rồi bấm Thử lại nhé!';
     } else if (
       errorMessage.includes('UNAVAILABLE') ||
       errorMessage.includes('503') ||
