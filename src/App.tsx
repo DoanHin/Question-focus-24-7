@@ -189,6 +189,44 @@ export default function App() {
     }
   };
 
+  const handleRetry = async () => {
+    if (!activeId || currentMessages.length === 0 || isLoading) return;
+    setErrorMessage(null);
+    setIsLoading(true);
+
+    try {
+      const assistantReply = await sendChatMessage(currentMessages, activeId);
+      const aiMessage: ChatMessage = {
+        id: `msg_${Date.now()}_a`,
+        role: 'assistant',
+        content: assistantReply,
+        timestamp: Date.now(),
+      };
+
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.id === activeId) {
+            return {
+              ...c,
+              updatedAt: Date.now(),
+              messages: [...c.messages, aiMessage],
+            };
+          }
+          return c;
+        })
+      );
+    } catch (err: any) {
+      console.error('Error retrying AI response:', err);
+      const friendlyMessage =
+        err instanceof AIServiceError
+          ? err.message
+          : 'Question Focus hiện chưa kết nối được với AI. Vui lòng thử lại sau.';
+      setErrorMessage(friendlyMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // If user has not chosen mode yet, show login screen
   if (!user) {
     return <AuthScreen onSelectUser={handleSelectUser} />;
@@ -232,18 +270,11 @@ export default function App() {
               <span>{errorMessage}</span>
             </div>
             <button
-              onClick={() => {
-                setErrorMessage(null);
-                if (currentMessages.length > 0) {
-                  const lastMsg = currentMessages[currentMessages.length - 1];
-                  if (lastMsg.role === 'user') {
-                    handleSendMessage(lastMsg.content);
-                  }
-                }
-              }}
-              className="text-xs font-medium text-red-800 hover:text-red-950 flex items-center gap-1 underline px-1 py-0.5"
+              onClick={handleRetry}
+              disabled={isLoading}
+              className="text-xs font-medium text-red-800 hover:text-red-950 flex items-center gap-1 underline px-1 py-0.5 disabled:opacity-50"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               Thử lại
             </button>
           </div>

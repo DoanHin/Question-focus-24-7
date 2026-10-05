@@ -1,11 +1,25 @@
 import React, { useState } from 'react';
 import { ChatMessage, UserProfile } from '../types';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { GraduationCap, Copy, Check, Clock } from 'lucide-react';
 
 interface ChatMessageItemProps {
   message: ChatMessage;
   user: UserProfile;
+}
+
+/**
+ * Standardize math delimiters so KaTeX can render:
+ * - \[ ... \] -> $$ ... $$
+ * - \( ... \) -> $ ... $
+ */
+function preprocessMath(content: string): string {
+  if (!content) return '';
+  let res = content.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
+  res = res.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math.trim()}$`);
+  return res;
 }
 
 export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message, user }) => {
@@ -23,6 +37,8 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message, user 
     const date = new Date(ts);
     return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
+
+  const formattedContent = preprocessMath(message.content);
 
   if (isUser) {
     // USER MESSAGE: Aligned to the RIGHT
@@ -47,7 +63,15 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message, user 
 
           {/* User Bubble */}
           <div className="bg-sky-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-xs shadow-xs text-sm sm:text-base leading-relaxed break-words">
-            <p className="whitespace-pre-wrap">{message.content}</p>
+            <ReactMarkdown
+              remarkPlugins={[remarkMath]}
+              rehypePlugins={[rehypeKatex]}
+              components={{
+                p: ({ children }) => <p className="whitespace-pre-wrap">{children}</p>,
+              }}
+            >
+              {formattedContent}
+            </ReactMarkdown>
           </div>
 
           {/* Timestamp */}
@@ -94,10 +118,15 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message, user 
             </button>
           </div>
 
-          {/* AI Bubble */}
+          {/* AI Bubble with KaTeX Math rendering */}
           <div className="bg-slate-50/90 hover:bg-slate-50 transition-colors border border-slate-200/90 text-slate-800 px-4 py-3 sm:px-5 sm:py-3.5 rounded-2xl rounded-tl-xs shadow-xs text-sm sm:text-base">
             <div className="prose-chat">
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+              >
+                {formattedContent}
+              </ReactMarkdown>
             </div>
           </div>
 
