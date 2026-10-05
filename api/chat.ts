@@ -109,7 +109,7 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    const modelName = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+    const modelName = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
 
     const ai = new GoogleGenAI({
       apiKey,
@@ -167,7 +167,7 @@ export default async function handler(req: any, res: any) {
       trimmedContents = mergedContents.slice(-1);
     }
 
-    const modelsToTry = [...new Set([modelName, 'gemini-2.5-flash'])];
+    const modelsToTry = [...new Set([modelName, 'gemini-3.1-flash-lite', 'gemini-3.8-flash'])];
     let response: any = null;
     let lastError: any = null;
 

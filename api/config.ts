@@ -15,7 +15,7 @@ export default function handler(req: any, res: any) {
   res.status(200).json({
     status: 'ok',
     appName: 'QUESTION FOCUS 24/7',
-    model: process.env.GEMINI_MODEL || 'gemini-3.8-flash',
+    model: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
     hasApiKey: Boolean(process.env.GEMINI_API_KEY),
   });
 }

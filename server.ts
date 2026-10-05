@@ -72,7 +72,7 @@ app.get('/api/config', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     appName: 'QUESTION FOCUS 24/7',
-    model: process.env.GEMINI_MODEL || 'gemini-3.8-flash',
+    model: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
     hasApiKey: Boolean(process.env.GEMINI_API_KEY),
   });
 });
@@ -98,7 +98,7 @@ app.post('/api/chat', async (req: Request, res: Response) => {
       });
     }
 
-    const modelName = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+    const modelName = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
 
     const ai = new GoogleGenAI({
       apiKey,
@@ -162,7 +162,7 @@ app.post('/api/chat', async (req: Request, res: Response) => {
       trimmedContents = mergedContents.slice(-1);
     }
 
-    const modelsToTry = [...new Set([modelName, 'gemini-2.5-flash'])];
+    const modelsToTry = [...new Set([modelName, 'gemini-3.1-flash-lite', 'gemini-3.8-flash'])];
     let response: any = null;
     let lastError: any = null;
 
